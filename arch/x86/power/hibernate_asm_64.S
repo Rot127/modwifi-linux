@@ -1,7 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Hibernation support for x86-64
- *
- * Distribute under GPLv2.
  *
  * Copyright 2007 Rafael J. Wysocki <rjw@sisk.pl>
  * Copyright 2005 Andi Kleen <ak@suse.de>
@@ -24,7 +23,6 @@
 #include <asm/frame.h>
 
 ENTRY(swsusp_arch_suspend)
-	FRAME_BEGIN
 	movq	$saved_context, %rax
 	movq	%rsp, pt_regs_sp(%rax)
 	movq	%rbp, pt_regs_bp(%rax)
@@ -48,6 +46,7 @@ ENTRY(swsusp_arch_suspend)
 	movq	%cr3, %rax
 	movq	%rax, restore_cr3(%rip)
 
+	FRAME_BEGIN
 	call swsusp_save
 	FRAME_END
 	ret
@@ -59,7 +58,7 @@ ENTRY(restore_image)
 	movq	restore_cr3(%rip), %r9
 
 	/* prepare to switch to temporary page tables */
-	movq	temp_level4_pgt(%rip), %rax
+	movq	temp_pgt(%rip), %rax
 	movq	mmu_cr4_features(%rip), %rbx
 
 	/* prepare to copy image data to their original locations */
@@ -72,8 +71,6 @@ ENTRY(restore_image)
 	/* code below has been relocated to a safe page */
 ENTRY(core_restore_code)
 	/* switch to temporary page tables */
-	movq	$__PAGE_OFFSET, %rcx
-	subq	%rcx, %rax
 	movq	%rax, %cr3
 	/* flush TLB */
 	movq	%rbx, %rcx
@@ -104,7 +101,6 @@ ENTRY(core_restore_code)
 	 /* code below belongs to the image kernel */
 	.align PAGE_SIZE
 ENTRY(restore_registers)
-	FRAME_BEGIN
 	/* go back to the original page tables */
 	movq    %r9, %cr3
 
@@ -140,11 +136,10 @@ ENTRY(restore_registers)
 	/* Saved in save_processor_state. */
 	lgdt	saved_context_gdt_desc(%rax)
 
-	xorq	%rax, %rax
+	xorl	%eax, %eax
 
 	/* tell the hibernation core that we've just restored the memory */
 	movq	%rax, in_suspend(%rip)
 
-	FRAME_END
 	ret
 ENDPROC(restore_registers)

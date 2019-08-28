@@ -1,11 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /**
  * Sensortek STK3310/STK3311 Ambient Light and Proximity Sensor
  *
  * Copyright (c) 2015, Intel Corporation.
- *
- * This file is subject to the terms and conditions of version 2 of
- * the GNU General Public License. See the file COPYING in the main
- * directory of this archive for more details.
  *
  * IIO driver for STK3310/STK3311. 7-bit I2C address: 0x48.
  */
@@ -409,7 +406,6 @@ static int stk3310_write_raw(struct iio_dev *indio_dev,
 }
 
 static const struct iio_info stk3310_info = {
-	.driver_module		= THIS_MODULE,
 	.read_raw		= stk3310_read_raw,
 	.write_raw		= stk3310_write_raw,
 	.attrs			= &stk3310_attribute_group,
@@ -528,7 +524,7 @@ static irqreturn_t stk3310_irq_handler(int irq, void *private)
 	struct iio_dev *indio_dev = private;
 	struct stk3310_data *data = iio_priv(indio_dev);
 
-	data->timestamp = iio_get_time_ns();
+	data->timestamp = iio_get_time_ns(indio_dev);
 
 	return IRQ_WAKE_THREAD;
 }

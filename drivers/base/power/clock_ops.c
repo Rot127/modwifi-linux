@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * drivers/base/power/clock_ops.c - Generic clock manipulation PM callbacks
  *
  * Copyright (c) 2011 Rafael J. Wysocki <rjw@sisk.pl>, Renesas Electronics Corp.
- *
- * This file is released under the GPLv2.
  */
 
 #include <linux/kernel.h>
@@ -65,10 +64,15 @@ static void pm_clk_acquire(struct device *dev, struct pm_clock_entry *ce)
 	if (IS_ERR(ce->clk)) {
 		ce->status = PCE_STATUS_ERROR;
 	} else {
-		clk_prepare(ce->clk);
-		ce->status = PCE_STATUS_ACQUIRED;
-		dev_dbg(dev, "Clock %pC con_id %s managed by runtime PM.\n",
-			ce->clk, ce->con_id);
+		if (clk_prepare(ce->clk)) {
+			ce->status = PCE_STATUS_ERROR;
+			dev_err(dev, "clk_prepare() failed\n");
+		} else {
+			ce->status = PCE_STATUS_ACQUIRED;
+			dev_dbg(dev,
+				"Clock %pC con_id %s managed by runtime PM.\n",
+				ce->clk, ce->con_id);
+		}
 	}
 }
 
@@ -121,6 +125,7 @@ int pm_clk_add(struct device *dev, const char *con_id)
 {
 	return __pm_clk_add(dev, con_id, NULL);
 }
+EXPORT_SYMBOL_GPL(pm_clk_add);
 
 /**
  * pm_clk_add_clk - Start using a device clock for power management.
@@ -136,7 +141,40 @@ int pm_clk_add_clk(struct device *dev, struct clk *clk)
 {
 	return __pm_clk_add(dev, NULL, clk);
 }
+EXPORT_SYMBOL_GPL(pm_clk_add_clk);
 
+
+/**
+ * of_pm_clk_add_clk - Start using a device clock for power management.
+ * @dev: Device whose clock is going to be used for power management.
+ * @name: Name of clock that is going to be used for power management.
+ *
+ * Add the clock described in the 'clocks' device-tree node that matches
+ * with the 'name' provided, to the list of clocks used for the power
+ * management of @dev. On success, returns 0. Returns a negative error
+ * code if the clock is not found or cannot be added.
+ */
+int of_pm_clk_add_clk(struct device *dev, const char *name)
+{
+	struct clk *clk;
+	int ret;
+
+	if (!dev || !dev->of_node || !name)
+		return -EINVAL;
+
+	clk = of_clk_get_by_name(dev->of_node, name);
+	if (IS_ERR(clk))
+		return PTR_ERR(clk);
+
+	ret = pm_clk_add_clk(dev, clk);
+	if (ret) {
+		clk_put(clk);
+		return ret;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(of_pm_clk_add_clk);
 
 /**
  * of_pm_clk_add_clks - Start using device clock(s) for power management.
@@ -151,7 +189,7 @@ int pm_clk_add_clk(struct device *dev, struct clk *clk)
 int of_pm_clk_add_clks(struct device *dev)
 {
 	struct clk **clks;
-	unsigned int i, count;
+	int i, count;
 	int ret;
 
 	if (!dev || !dev->of_node)
@@ -192,6 +230,7 @@ error:
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(of_pm_clk_add_clks);
 
 /**
  * __pm_clk_remove - Destroy PM clock entry.
@@ -252,6 +291,7 @@ void pm_clk_remove(struct device *dev, const char *con_id)
 
 	__pm_clk_remove(ce);
 }
+EXPORT_SYMBOL_GPL(pm_clk_remove);
 
 /**
  * pm_clk_remove_clk - Stop using a device clock for power management.
@@ -285,6 +325,7 @@ void pm_clk_remove_clk(struct device *dev, struct clk *clk)
 
 	__pm_clk_remove(ce);
 }
+EXPORT_SYMBOL_GPL(pm_clk_remove_clk);
 
 /**
  * pm_clk_init - Initialize a device's list of power management clocks.
@@ -299,6 +340,7 @@ void pm_clk_init(struct device *dev)
 	if (psd)
 		INIT_LIST_HEAD(&psd->clock_list);
 }
+EXPORT_SYMBOL_GPL(pm_clk_init);
 
 /**
  * pm_clk_create - Create and initialize a device's list of PM clocks.
@@ -311,6 +353,7 @@ int pm_clk_create(struct device *dev)
 {
 	return dev_pm_get_subsys_data(dev);
 }
+EXPORT_SYMBOL_GPL(pm_clk_create);
 
 /**
  * pm_clk_destroy - Destroy a device's list of power management clocks.
@@ -345,6 +388,7 @@ void pm_clk_destroy(struct device *dev)
 		__pm_clk_remove(ce);
 	}
 }
+EXPORT_SYMBOL_GPL(pm_clk_destroy);
 
 /**
  * pm_clk_suspend - Disable clocks in a device's PM clock list.
@@ -375,6 +419,7 @@ int pm_clk_suspend(struct device *dev)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(pm_clk_suspend);
 
 /**
  * pm_clk_resume - Enable clocks in a device's PM clock list.
@@ -400,6 +445,7 @@ int pm_clk_resume(struct device *dev)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(pm_clk_resume);
 
 /**
  * pm_clk_notify - Notify routine for device addition and removal.
@@ -480,6 +526,7 @@ int pm_clk_runtime_suspend(struct device *dev)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(pm_clk_runtime_suspend);
 
 int pm_clk_runtime_resume(struct device *dev)
 {
@@ -495,6 +542,7 @@ int pm_clk_runtime_resume(struct device *dev)
 
 	return pm_generic_runtime_resume(dev);
 }
+EXPORT_SYMBOL_GPL(pm_clk_runtime_resume);
 
 #else /* !CONFIG_PM_CLK */
 
@@ -598,3 +646,4 @@ void pm_clk_add_notifier(struct bus_type *bus,
 	clknb->nb.notifier_call = pm_clk_notify;
 	bus_register_notifier(bus, &clknb->nb);
 }
+EXPORT_SYMBOL_GPL(pm_clk_add_notifier);

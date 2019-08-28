@@ -53,6 +53,8 @@
 #include <linux/uaccess.h>
 #include <linux/syscalls.h>
 #include <linux/tracehook.h>
+#include <linux/sched/task_stack.h>
+
 #include <asm/ucontext.h>
 
 struct rt_sigframe {
@@ -107,13 +109,13 @@ static int restore_usr_regs(struct pt_regs *regs, struct rt_sigframe __user *sf)
 	struct user_regs_struct uregs;
 
 	err = __copy_from_user(&set, &sf->uc.uc_sigmask, sizeof(set));
-	if (!err)
-		set_current_blocked(&set);
-
 	err |= __copy_from_user(&uregs.scratch,
 				&(sf->uc.uc_mcontext.regs.scratch),
 				sizeof(sf->uc.uc_mcontext.regs.scratch));
+	if (err)
+		return err;
 
+	set_current_blocked(&set);
 	regs->bta	= uregs.scratch.bta;
 	regs->lp_start	= uregs.scratch.lp_start;
 	regs->lp_end	= uregs.scratch.lp_end;
@@ -138,7 +140,7 @@ static int restore_usr_regs(struct pt_regs *regs, struct rt_sigframe __user *sf)
 	regs->r0	= uregs.scratch.r0;
 	regs->sp	= uregs.scratch.sp;
 
-	return err;
+	return 0;
 }
 
 static inline int is_do_ss_needed(unsigned int magic)
@@ -167,7 +169,7 @@ SYSCALL_DEFINE0(rt_sigreturn)
 
 	sf = (struct rt_sigframe __force __user *)(regs->sp);
 
-	if (!access_ok(VERIFY_READ, sf, sizeof(*sf)))
+	if (!access_ok(sf, sizeof(*sf)))
 		goto badframe;
 
 	if (__get_user(magic, &sf->sigret_magic))
@@ -217,7 +219,7 @@ static inline void __user *get_sigframe(struct ksignal *ksig,
 	frame = (void __user *)((sp - framesize) & ~7);
 
 	/* Check that we can actually write to the signal frame */
-	if (!access_ok(VERIFY_WRITE, frame, framesize))
+	if (!access_ok(frame, framesize))
 		frame = NULL;
 
 	return frame;

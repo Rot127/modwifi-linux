@@ -71,7 +71,7 @@ static void ath9k_htc_op_ps_restore(struct ath_common *common)
 	ath9k_htc_ps_restore((struct ath9k_htc_priv *) common->priv);
 }
 
-static struct ath_ps_ops ath9k_htc_ps_ops = {
+static const struct ath_ps_ops ath9k_htc_ps_ops = {
 	.wakeup = ath9k_htc_op_ps_wakeup,
 	.restore = ath9k_htc_op_ps_restore,
 };
@@ -245,7 +245,7 @@ static void ath9k_reg_notifier(struct wiphy *wiphy,
 
 static unsigned int ath9k_regread(void *hw_priv, u32 reg_offset)
 {
-	struct ath_hw *ah = (struct ath_hw *) hw_priv;
+	struct ath_hw *ah = hw_priv;
 	struct ath_common *common = ath9k_hw_common(ah);
 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
 	__be32 val, reg = cpu_to_be32(reg_offset);
@@ -267,7 +267,7 @@ static unsigned int ath9k_regread(void *hw_priv, u32 reg_offset)
 static void ath9k_multi_regread(void *hw_priv, u32 *addr,
 				u32 *val, u16 count)
 {
-	struct ath_hw *ah = (struct ath_hw *) hw_priv;
+	struct ath_hw *ah = hw_priv;
 	struct ath_common *common = ath9k_hw_common(ah);
 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
 	__be32 tmpaddr[8];
@@ -313,7 +313,7 @@ static void ath9k_regwrite_multi(struct ath_common *common)
 
 static void ath9k_regwrite_single(void *hw_priv, u32 val, u32 reg_offset)
 {
-	struct ath_hw *ah = (struct ath_hw *) hw_priv;
+	struct ath_hw *ah = hw_priv;
 	struct ath_common *common = ath9k_hw_common(ah);
 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
 	const __be32 buf[2] = {
@@ -334,7 +334,7 @@ static void ath9k_regwrite_single(void *hw_priv, u32 val, u32 reg_offset)
 
 static void ath9k_regwrite_buffer(void *hw_priv, u32 val, u32 reg_offset)
 {
-	struct ath_hw *ah = (struct ath_hw *) hw_priv;
+	struct ath_hw *ah = hw_priv;
 	struct ath_common *common = ath9k_hw_common(ah);
 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
 
@@ -357,7 +357,7 @@ static void ath9k_regwrite_buffer(void *hw_priv, u32 val, u32 reg_offset)
 
 static void ath9k_regwrite(void *hw_priv, u32 val, u32 reg_offset)
 {
-	struct ath_hw *ah = (struct ath_hw *) hw_priv;
+	struct ath_hw *ah = hw_priv;
 	struct ath_common *common = ath9k_hw_common(ah);
 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
 
@@ -369,7 +369,7 @@ static void ath9k_regwrite(void *hw_priv, u32 val, u32 reg_offset)
 
 static void ath9k_enable_regwrite_buffer(void *hw_priv)
 {
-	struct ath_hw *ah = (struct ath_hw *) hw_priv;
+	struct ath_hw *ah = hw_priv;
 	struct ath_common *common = ath9k_hw_common(ah);
 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
 
@@ -378,7 +378,7 @@ static void ath9k_enable_regwrite_buffer(void *hw_priv)
 
 static void ath9k_regwrite_flush(void *hw_priv)
 {
-	struct ath_hw *ah = (struct ath_hw *) hw_priv;
+	struct ath_hw *ah = hw_priv;
 	struct ath_common *common = ath9k_hw_common(ah);
 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
 
@@ -395,7 +395,7 @@ static void ath9k_regwrite_flush(void *hw_priv)
 static void ath9k_reg_rmw_buffer(void *hw_priv,
 				 u32 reg_offset, u32 set, u32 clr)
 {
-	struct ath_hw *ah = (struct ath_hw *) hw_priv;
+	struct ath_hw *ah = hw_priv;
 	struct ath_common *common = ath9k_hw_common(ah);
 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
 	u32 rsp_status;
@@ -433,7 +433,7 @@ static void ath9k_reg_rmw_buffer(void *hw_priv,
 
 static void ath9k_reg_rmw_flush(void *hw_priv)
 {
-	struct ath_hw *ah = (struct ath_hw *) hw_priv;
+	struct ath_hw *ah = hw_priv;
 	struct ath_common *common = ath9k_hw_common(ah);
 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
 	u32 rsp_status;
@@ -465,7 +465,7 @@ static void ath9k_reg_rmw_flush(void *hw_priv)
 
 static void ath9k_enable_rmw_buffer(void *hw_priv)
 {
-	struct ath_hw *ah = (struct ath_hw *) hw_priv;
+	struct ath_hw *ah = hw_priv;
 	struct ath_common *common = ath9k_hw_common(ah);
 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
 
@@ -478,7 +478,7 @@ static void ath9k_enable_rmw_buffer(void *hw_priv)
 static u32 ath9k_reg_rmw_single(void *hw_priv,
 				 u32 reg_offset, u32 set, u32 clr)
 {
-	struct ath_hw *ah = (struct ath_hw *) hw_priv;
+	struct ath_hw *ah = hw_priv;
 	struct ath_common *common = ath9k_hw_common(ah);
 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
 	struct register_rmw buf, buf_ret;
@@ -502,7 +502,7 @@ static u32 ath9k_reg_rmw_single(void *hw_priv,
 
 static u32 ath9k_reg_rmw(void *hw_priv, u32 reg_offset, u32 set, u32 clr)
 {
-	struct ath_hw *ah = (struct ath_hw *) hw_priv;
+	struct ath_hw *ah = hw_priv;
 	struct ath_common *common = ath9k_hw_common(ah);
 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
 
@@ -603,7 +603,7 @@ static void ath9k_init_misc(struct ath9k_htc_priv *priv)
 {
 	struct ath_common *common = ath9k_hw_common(priv->ah);
 
-	memcpy(common->bssidmask, ath_bcast_mac, ETH_ALEN);
+	eth_broadcast_addr(common->bssidmask);
 
 	common->last_rssi = ATH_RSSI_DUMMY_MARKER;
 	priv->ah->opmode = NL80211_IFTYPE_STATION;
@@ -666,8 +666,7 @@ static int ath9k_init_priv(struct ath9k_htc_priv *priv,
 	INIT_DELAYED_WORK(&priv->ani_work, ath9k_htc_ani_work);
 	INIT_WORK(&priv->ps_work, ath9k_ps_work);
 	INIT_WORK(&priv->fatal_work, ath9k_fatal_work);
-	setup_timer(&priv->tx.cleanup_timer, ath9k_htc_tx_cleanup_timer,
-		    (unsigned long)priv);
+	timer_setup(&priv->tx.cleanup_timer, ath9k_htc_tx_cleanup_timer, 0);
 
 	/*
 	 * Cache line size is used to size and align various
@@ -690,7 +689,7 @@ static int ath9k_init_priv(struct ath9k_htc_priv *priv,
 
 	for (i = 0; i < ATH9K_HTC_MAX_BCN_VIF; i++)
 		priv->beacon.bslot[i] = NULL;
-	priv->beacon.slottime = ATH9K_SLOT_TIME_9;
+	priv->beacon.slottime = 9;
 
 	ath9k_cmn_init_channels_rates(common);
 	ath9k_cmn_init_crypto(ah);
@@ -742,6 +741,7 @@ static void ath9k_set_hw_capab(struct ath9k_htc_priv *priv,
 	ieee80211_hw_set(hw, SPECTRUM_MGMT);
 	ieee80211_hw_set(hw, SIGNAL_DBM);
 	ieee80211_hw_set(hw, AMPDU_AGGREGATION);
+	ieee80211_hw_set(hw, DOESNT_SUPPORT_QOS_NDP);
 
 	if (ath9k_ps_enable)
 		ieee80211_hw_set(hw, SUPPORTS_PS);
@@ -792,6 +792,8 @@ static void ath9k_set_hw_capab(struct ath9k_htc_priv *priv,
 	}
 
 	SET_IEEE80211_PERM_ADDR(hw, common->macaddr);
+
+	wiphy_ext_feature_set(hw->wiphy, NL80211_EXT_FEATURE_CQM_RSSI_LIST);
 }
 
 static int ath9k_init_firmware_version(struct ath9k_htc_priv *priv)

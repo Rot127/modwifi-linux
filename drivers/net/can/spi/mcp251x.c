@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * CAN bus driver for Microchip 251x CAN Controller with SPI Interface
  *
@@ -18,20 +19,6 @@
  * - Simon Kallweit, intefo AG
  * Copyright 2007
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the version 2 of the GNU General Public License
- * as published by the Free Software Foundation
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
- *
- *
- *
  * Your platform definition file should specify something like:
  *
  * static struct mcp251x_platform_data mcp251x_info = {
@@ -51,7 +38,6 @@
  *
  * Please see mcp251x.h for a description of the fields in
  * struct mcp251x_platform_data.
- *
  */
 
 #include <linux/can/core.h>
@@ -220,7 +206,7 @@
 #define DEVICE_NAME "mcp251x"
 
 static int mcp251x_enable_dma; /* Enable SPI DMA. Default: 0 (Off) */
-module_param(mcp251x_enable_dma, int, S_IRUGO);
+module_param(mcp251x_enable_dma, int, 0444);
 MODULE_PARM_DESC(mcp251x_enable_dma, "Enable SPI DMA. Default: 0 (Off)");
 
 static const struct can_bittiming_const mcp251x_bittiming_const = {
@@ -612,8 +598,7 @@ static int mcp251x_do_set_bittiming(struct net_device *net)
 	return 0;
 }
 
-static int mcp251x_setup(struct net_device *net, struct mcp251x_priv *priv,
-			 struct spi_device *spi)
+static int mcp251x_setup(struct net_device *net, struct spi_device *spi)
 {
 	mcp251x_do_set_bittiming(net);
 
@@ -775,7 +760,7 @@ static void mcp251x_restart_work_handler(struct work_struct *ws)
 	mutex_lock(&priv->mcp_lock);
 	if (priv->after_suspend) {
 		mcp251x_hw_reset(spi);
-		mcp251x_setup(net, priv, spi);
+		mcp251x_setup(net, spi);
 		if (priv->after_suspend & AFTER_SUSPEND_RESTART) {
 			mcp251x_set_normal_mode(spi);
 		} else if (priv->after_suspend & AFTER_SUSPEND_UP) {
@@ -971,7 +956,7 @@ static int mcp251x_open(struct net_device *net)
 		mcp251x_open_clean(net);
 		goto open_unlock;
 	}
-	ret = mcp251x_setup(net, priv, spi);
+	ret = mcp251x_setup(net, spi);
 	if (ret) {
 		mcp251x_open_clean(net);
 		goto open_unlock;
@@ -1145,8 +1130,11 @@ static int mcp251x_can_probe(struct spi_device *spi)
 
 	/* Here is OK to not lock the MCP, no one knows about it yet */
 	ret = mcp251x_hw_probe(spi);
-	if (ret)
+	if (ret) {
+		if (ret == -ENODEV)
+			dev_err(&spi->dev, "Cannot initialize MCP%x. Wrong wiring?\n", priv->model);
 		goto error_probe;
+	}
 
 	mcp251x_hw_sleep(spi);
 
@@ -1156,6 +1144,7 @@ static int mcp251x_can_probe(struct spi_device *spi)
 
 	devm_can_led_init(net);
 
+	netdev_info(net, "MCP%x successfully initialized.\n", priv->model);
 	return 0;
 
 error_probe:
@@ -1168,6 +1157,7 @@ out_clk:
 out_free:
 	free_candev(net);
 
+	dev_err(&spi->dev, "Probe failed, err=%d\n", -ret);
 	return ret;
 }
 

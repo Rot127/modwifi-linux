@@ -1,11 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /**
  * Aosong AM2315 relative humidity and temperature
  *
  * Copyright (c) 2016, Intel Corporation.
- *
- * This file is subject to the terms and conditions of version 2 of
- * the GNU General Public License. See the file COPYING in the main
- * directory of this archive for more details.
  *
  * 7-bit I2C address: 0x5C.
  */
@@ -215,7 +212,6 @@ static int am2315_read_raw(struct iio_dev *indio_dev,
 }
 
 static const struct iio_info am2315_info = {
-	.driver_module		= THIS_MODULE,
 	.read_raw		= am2315_read_raw,
 };
 
@@ -244,7 +240,7 @@ static int am2315_probe(struct i2c_client *client,
 	indio_dev->channels = am2315_channels;
 	indio_dev->num_channels = ARRAY_SIZE(am2315_channels);
 
-	ret = iio_triggered_buffer_setup(indio_dev, NULL,
+	ret = iio_triggered_buffer_setup(indio_dev, iio_pollfunc_store_time,
 					 am2315_trigger_handler, NULL);
 	if (ret < 0) {
 		dev_err(&client->dev, "iio triggered buffer setup failed\n");
@@ -276,6 +272,7 @@ static const struct i2c_device_id am2315_i2c_id[] = {
 	{"am2315", 0},
 	{}
 };
+MODULE_DEVICE_TABLE(i2c, am2315_i2c_id);
 
 static const struct acpi_device_id am2315_acpi_id[] = {
 	{"AOS2315", 0},

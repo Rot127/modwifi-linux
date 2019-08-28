@@ -1,15 +1,17 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 #ifndef _KERNEL_EVENTS_INTERNAL_H
 #define _KERNEL_EVENTS_INTERNAL_H
 
 #include <linux/hardirq.h>
 #include <linux/uaccess.h>
+#include <linux/refcount.h>
 
 /* Buffer handling */
 
 #define RING_BUFFER_WRITABLE		0x01
 
 struct ring_buffer {
-	atomic_t			refcount;
+	refcount_t			refcount;
 	struct rcu_head			rcu_head;
 #ifdef CONFIG_PERF_USE_VMALLOC
 	struct work_struct		work;
@@ -22,7 +24,7 @@ struct ring_buffer {
 	atomic_t			poll;		/* POLL_ for wakeups */
 
 	local_t				head;		/* write position    */
-	local_t				nest;		/* nested writers    */
+	unsigned int			nest;		/* nested writers    */
 	local_t				events;		/* event limit       */
 	local_t				wakeup;		/* wakeup stamp      */
 	local_t				lost;		/* nr records lost   */
@@ -38,16 +40,16 @@ struct ring_buffer {
 	struct user_struct		*mmap_user;
 
 	/* AUX area */
-	local_t				aux_head;
-	local_t				aux_nest;
-	local_t				aux_wakeup;
+	long				aux_head;
+	unsigned int			aux_nest;
+	long				aux_wakeup;	/* last aux_watermark boundary crossed by aux_head */
 	unsigned long			aux_pgoff;
 	int				aux_nr_pages;
 	int				aux_overwrite;
 	atomic_t			aux_mmap_count;
 	unsigned long			aux_mmap_locked;
 	void				(*free_aux)(void *);
-	atomic_t			aux_refcount;
+	refcount_t			aux_refcount;
 	void				**aux_pages;
 	void				*aux_priv;
 
@@ -123,21 +125,19 @@ static inline unsigned long perf_aux_size(struct ring_buffer *rb)
 	return rb->aux_nr_pages << PAGE_SHIFT;
 }
 
-#define DEFINE_OUTPUT_COPY(func_name, memcpy_func)			\
-static inline unsigned long						\
-func_name(struct perf_output_handle *handle,				\
-	  const void *buf, unsigned long len)				\
+#define __DEFINE_OUTPUT_COPY_BODY(advance_buf, memcpy_func, ...)	\
 {									\
 	unsigned long size, written;					\
 									\
 	do {								\
 		size    = min(handle->size, len);			\
-		written = memcpy_func(handle->addr, buf, size);		\
+		written = memcpy_func(__VA_ARGS__);			\
 		written = size - written;				\
 									\
 		len -= written;						\
 		handle->addr += written;				\
-		buf += written;						\
+		if (advance_buf)					\
+			buf += written;					\
 		handle->size -= written;				\
 		if (!handle->size) {					\
 			struct ring_buffer *rb = handle->rb;		\
@@ -150,6 +150,21 @@ func_name(struct perf_output_handle *handle,				\
 	} while (len && written == size);				\
 									\
 	return len;							\
+}
+
+#define DEFINE_OUTPUT_COPY(func_name, memcpy_func)			\
+static inline unsigned long						\
+func_name(struct perf_output_handle *handle,				\
+	  const void *buf, unsigned long len)				\
+__DEFINE_OUTPUT_COPY_BODY(true, memcpy_func, handle->addr, buf, size)
+
+static inline unsigned long
+__output_custom(struct perf_output_handle *handle, perf_copy_f copy_func,
+		const void *buf, unsigned long len)
+{
+	unsigned long orig_len = len;
+	__DEFINE_OUTPUT_COPY_BODY(false, copy_func, handle->addr, buf,
+				  orig_len - len, size)
 }
 
 static inline unsigned long
@@ -187,15 +202,11 @@ arch_perf_out_copy_user(void *dst, const void *src, unsigned long n)
 
 DEFINE_OUTPUT_COPY(__output_copy_user, arch_perf_out_copy_user)
 
-/* Callchain handling */
-extern struct perf_callchain_entry *
-perf_callchain(struct perf_event *event, struct pt_regs *regs);
-
 static inline int get_recursion_context(int *recursion)
 {
 	int rctx;
 
-	if (in_nmi())
+	if (unlikely(in_nmi()))
 		rctx = 3;
 	else if (in_irq())
 		rctx = 2;

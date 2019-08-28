@@ -22,6 +22,7 @@
 #include <linux/mfd/atmel-hlcdc.h>
 #include <linux/mfd/core.h>
 #include <linux/module.h>
+#include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 
@@ -50,8 +51,9 @@ static int regmap_atmel_hlcdc_reg_write(void *context, unsigned int reg,
 	if (reg <= ATMEL_HLCDC_DIS) {
 		u32 status;
 
-		readl_poll_timeout(hregmap->regs + ATMEL_HLCDC_SR, status,
-				   !(status & ATMEL_HLCDC_SIP), 1, 100);
+		readl_poll_timeout_atomic(hregmap->regs + ATMEL_HLCDC_SR,
+					  status, !(status & ATMEL_HLCDC_SIP),
+					  1, 100);
 	}
 
 	writel(val, hregmap->regs + reg);
@@ -139,6 +141,7 @@ static const struct of_device_id atmel_hlcdc_match[] = {
 	{ .compatible = "atmel,sama5d2-hlcdc" },
 	{ .compatible = "atmel,sama5d3-hlcdc" },
 	{ .compatible = "atmel,sama5d4-hlcdc" },
+	{ .compatible = "microchip,sam9x60-hlcdc" },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, atmel_hlcdc_match);

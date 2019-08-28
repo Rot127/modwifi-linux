@@ -66,7 +66,7 @@ static int ddc_clear_irq(struct hdmi_i2c_adapter *hdmi_i2c)
 	} while ((ddc_int_ctrl & HDMI_DDC_INT_CTRL_SW_DONE_INT) && retry);
 
 	if (!retry) {
-		dev_err(dev->dev, "timeout waiting for DDC\n");
+		DRM_DEV_ERROR(dev->dev, "timeout waiting for DDC\n");
 		return -ETIMEDOUT;
 	}
 
@@ -243,7 +243,6 @@ void msm_hdmi_i2c_destroy(struct i2c_adapter *i2c)
 
 struct i2c_adapter *msm_hdmi_i2c_init(struct hdmi *hdmi)
 {
-	struct drm_device *dev = hdmi->dev;
 	struct hdmi_i2c_adapter *hdmi_i2c;
 	struct i2c_adapter *i2c = NULL;
 	int ret;
@@ -267,10 +266,8 @@ struct i2c_adapter *msm_hdmi_i2c_init(struct hdmi *hdmi)
 	i2c->algo = &msm_hdmi_i2c_algorithm;
 
 	ret = i2c_add_adapter(i2c);
-	if (ret) {
-		dev_err(dev->dev, "failed to register hdmi i2c: %d\n", ret);
+	if (ret)
 		goto fail;
-	}
 
 	return i2c;
 

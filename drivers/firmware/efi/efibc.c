@@ -1,15 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * efibc: control EFI bootloaders which obey LoaderEntryOneShot var
  * Copyright (c) 2013-2016, Intel Corporation.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
  */
 
 #define pr_fmt(fmt) "efibc: " fmt
@@ -37,13 +29,13 @@ static int efibc_set_variable(const char *name, const char *value)
 	size_t size = (strlen(value) + 1) * sizeof(efi_char16_t);
 
 	if (size > sizeof(entry->var.Data)) {
-		pr_err("value is too large");
+		pr_err("value is too large (%zu bytes) for '%s' EFI variable\n", size, name);
 		return -EINVAL;
 	}
 
 	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
 	if (!entry) {
-		pr_err("failed to allocate efivar entry");
+		pr_err("failed to allocate efivar entry for '%s' EFI variable\n", name);
 		return -ENOMEM;
 	}
 

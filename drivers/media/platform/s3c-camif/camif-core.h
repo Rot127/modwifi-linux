@@ -254,14 +254,13 @@ struct camif_vp {
  * @ctrl_handler: v4l2 control handler (owned by @subdev)
  * @test_pattern: test pattern controls
  * @vp:           video path (DMA) description (codec/preview)
- * @alloc_ctx:    memory buffer allocator context
  * @variant:      variant information for this device
  * @dev:	  pointer to the CAMIF device struct
  * @pdata:	  a copy of the driver's platform data
  * @clock:	  clocks required for the CAMIF operation
  * @lock:	  mutex protecting this data structure
  * @slock:	  spinlock protecting CAMIF registers
- * @io_base:	  start address of the mmaped CAMIF registers
+ * @io_base:	  start address of the mmapped CAMIF registers
  */
 struct camif_dev {
 	struct media_device		media_dev;
@@ -291,7 +290,6 @@ struct camif_dev {
 	u8				colorfx_cr;
 
 	struct camif_vp			vp[CAMIF_VP_NUM];
-	struct vb2_alloc_ctx		*alloc_ctx;
 
 	const struct s3c_camif_variant	*variant;
 	struct device			*dev;

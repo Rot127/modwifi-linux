@@ -1,20 +1,23 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Driver for the NVIDIA Tegra pinmux
  *
  * Copyright (c) 2011, NVIDIA CORPORATION.  All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
  */
 
 #ifndef __PINMUX_TEGRA_H__
 #define __PINMUX_TEGRA_H__
+
+struct tegra_pmx {
+	struct device *dev;
+	struct pinctrl_dev *pctl;
+
+	const struct tegra_pinctrl_soc_data *soc;
+	const char **group_pins;
+
+	int nbanks;
+	void __iomem **regs;
+};
 
 enum tegra_pinconf_param {
 	/* argument: tegra_pinconf_pull */
@@ -93,9 +96,7 @@ struct tegra_function {
  * @tri_reg:		Tri-state register offset.
  * @tri_bank:		Tri-state register bank.
  * @tri_bit:		Tri-state register bit.
- * @parked_reg:		Parked register offset. -1 if unsupported.
- * @parked_bank:	Parked register bank. 0 if unsupported.
- * @parked_bit:		Parked register bit. 0 if unsupported.
+ * @parked_bit:		Parked register bit. -1 if unsupported.
  * @einput_bit:		Enable-input register bit.
  * @odrain_bit:		Open-drain register bit.
  * @lock_bit:		Lock register bit.
@@ -138,12 +139,10 @@ struct tegra_pingroup {
 	s16 pupd_reg;
 	s16 tri_reg;
 	s16 drv_reg;
-	s16 parked_reg;
 	u32 mux_bank:2;
 	u32 pupd_bank:2;
 	u32 tri_bank:2;
 	u32 drv_bank:2;
-	u32 parked_bank:2;
 	s32 mux_bit:6;
 	s32 pupd_bit:6;
 	s32 tri_bit:6;
@@ -182,6 +181,7 @@ struct tegra_pingroup {
  */
 struct tegra_pinctrl_soc_data {
 	unsigned ngpios;
+	const char *gpio_compatible;
 	const struct pinctrl_pin_desc *pins;
 	unsigned npins;
 	struct tegra_function *functions;

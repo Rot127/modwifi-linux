@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: ISC
 /*
- * Copyright (c) 2014 Qualcomm Atheros, Inc.
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * Copyright (c) 2014-2017 Qualcomm Atheros, Inc.
  */
 
 #include "testmode.h"
@@ -23,6 +12,7 @@
 #include "wmi.h"
 #include "hif.h"
 #include "hw.h"
+#include "core.h"
 
 #include "testmode_i.h"
 
@@ -45,7 +35,7 @@ bool ath10k_tm_event_wmi(struct ath10k *ar, u32 cmd_id, struct sk_buff *skb)
 	int ret;
 
 	ath10k_dbg(ar, ATH10K_DBG_TESTMODE,
-		   "testmode event wmi cmd_id %d skb %p skb->len %d\n",
+		   "testmode event wmi cmd_id %d skb %pK skb->len %d\n",
 		   cmd_id, skb, skb->len);
 
 	ath10k_dbg_dump(ar, ATH10K_DBG_TESTMODE, NULL, "", skb->data, skb->len);
@@ -136,6 +126,13 @@ static int ath10k_tm_cmd_get_version(struct ath10k *ar, struct nlattr *tb[])
 		return ret;
 	}
 
+	ret = nla_put_u32(skb, ATH10K_TM_ATTR_WMI_OP_VERSION,
+			  ar->normal_mode_fw.fw_file.wmi_op_version);
+	if (ret) {
+		kfree_skb(skb);
+		return ret;
+	}
+
 	return cfg80211_testmode_reply(skb);
 }
 
@@ -149,7 +146,10 @@ static int ath10k_tm_fetch_utf_firmware_api_1(struct ath10k *ar,
 		 ar->hw_params.fw.dir, ATH10K_FW_UTF_FILE);
 
 	/* load utf firmware image */
-	ret = request_firmware(&fw_file->firmware, filename, ar->dev);
+	ret = firmware_request_nowarn(&fw_file->firmware, filename, ar->dev);
+	ath10k_dbg(ar, ATH10K_DBG_TESTMODE, "testmode fw request '%s': %d\n",
+		   filename, ret);
+
 	if (ret) {
 		ath10k_warn(ar, "failed to retrieve utf firmware '%s': %d\n",
 			    filename, ret);
@@ -240,6 +240,18 @@ static int ath10k_tm_cmd_utf_start(struct ath10k *ar, struct nlattr *tb[])
 		goto err;
 	}
 
+	if (ar->testmode.utf_mode_fw.fw_file.codeswap_data &&
+	    ar->testmode.utf_mode_fw.fw_file.codeswap_len) {
+		ret = ath10k_swap_code_seg_init(ar,
+						&ar->testmode.utf_mode_fw.fw_file);
+		if (ret) {
+			ath10k_warn(ar,
+				    "failed to init utf code swap segment: %d\n",
+				    ret);
+			goto err_release_utf_mode_fw;
+		}
+	}
+
 	spin_lock_bh(&ar->data_lock);
 	ar->testmode.utf_monitor = true;
 	spin_unlock_bh(&ar->data_lock);
@@ -247,7 +259,7 @@ static int ath10k_tm_cmd_utf_start(struct ath10k *ar, struct nlattr *tb[])
 	ath10k_dbg(ar, ATH10K_DBG_TESTMODE, "testmode wmi version %d\n",
 		   ar->testmode.utf_mode_fw.fw_file.wmi_op_version);
 
-	ret = ath10k_hif_power_up(ar);
+	ret = ath10k_hif_power_up(ar, ATH10K_FIRMWARE_MODE_UTF);
 	if (ret) {
 		ath10k_err(ar, "failed to power up hif (testmode): %d\n", ret);
 		ar->state = ATH10K_STATE_OFF;
@@ -279,6 +291,11 @@ err_power_down:
 	ath10k_hif_power_down(ar);
 
 err_release_utf_mode_fw:
+	if (ar->testmode.utf_mode_fw.fw_file.codeswap_data &&
+	    ar->testmode.utf_mode_fw.fw_file.codeswap_len)
+		ath10k_swap_code_seg_release(ar,
+					     &ar->testmode.utf_mode_fw.fw_file);
+
 	release_firmware(ar->testmode.utf_mode_fw.fw_file.firmware);
 	ar->testmode.utf_mode_fw.fw_file.firmware = NULL;
 
@@ -300,6 +317,11 @@ static void __ath10k_tm_cmd_utf_stop(struct ath10k *ar)
 	ar->testmode.utf_monitor = false;
 
 	spin_unlock_bh(&ar->data_lock);
+
+	if (ar->testmode.utf_mode_fw.fw_file.codeswap_data &&
+	    ar->testmode.utf_mode_fw.fw_file.codeswap_len)
+		ath10k_swap_code_seg_release(ar,
+					     &ar->testmode.utf_mode_fw.fw_file);
 
 	release_firmware(ar->testmode.utf_mode_fw.fw_file.firmware);
 	ar->testmode.utf_mode_fw.fw_file.firmware = NULL;
@@ -360,7 +382,7 @@ static int ath10k_tm_cmd_wmi(struct ath10k *ar, struct nlattr *tb[])
 	cmd_id = nla_get_u32(tb[ATH10K_TM_ATTR_WMI_CMDID]);
 
 	ath10k_dbg(ar, ATH10K_DBG_TESTMODE,
-		   "testmode cmd wmi cmd_id %d buf %p buf_len %d\n",
+		   "testmode cmd wmi cmd_id %d buf %pK buf_len %d\n",
 		   cmd_id, buf, buf_len);
 
 	ath10k_dbg_dump(ar, ATH10K_DBG_TESTMODE, NULL, "", buf, buf_len);
@@ -394,8 +416,8 @@ int ath10k_tm_cmd(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct nlattr *tb[ATH10K_TM_ATTR_MAX + 1];
 	int ret;
 
-	ret = nla_parse(tb, ATH10K_TM_ATTR_MAX, data, len,
-			ath10k_tm_policy);
+	ret = nla_parse_deprecated(tb, ATH10K_TM_ATTR_MAX, data, len,
+				   ath10k_tm_policy, NULL);
 	if (ret)
 		return ret;
 
