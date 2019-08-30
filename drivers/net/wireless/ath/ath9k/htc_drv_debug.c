@@ -1163,6 +1163,10 @@ void ath9k_htc_get_et_stats(struct ieee80211_hw *hw,
 
 void ath9k_htc_deinit_debug(struct ath9k_htc_priv *priv)
 {
+	if (priv->debug.debugfs_phy_regs)
+		debugfs_remove(priv->debug.debugfs_phy_regs);
+	priv->debug.debugfs_phy_regs = NULL;
+
 	ath9k_cmn_spectral_deinit_debug(&priv->spec_priv);
 }
 
